@@ -23,7 +23,7 @@ from qsrlib_io.world_trace import *
 
 class CAD120_Data_Reader(object):
     def __init__(self, config_filename="config.ini", skeleton_pass_filter=("H", "LH", "RH"),
-                 load_from_files=False, read_tracks=True):
+                 load_from_files=False, sub_sequences_collapsed=False, read_tracks=True):
         start = timeit.default_timer()
         print("\n--", self.__class__.__name__)
         print("Initializing...", end="")
@@ -72,19 +72,6 @@ class CAD120_Data_Reader(object):
         if not self.load_from_files:
             print(colorify(Fore.YELLOW, "Check that labeling.txt is read from the corrected version directory: '%s'" % self.corrected_labeling_path))
 
-        # get the sequences of subactivities in a superactivity video; these are condensed (i.e. no repetitions,
-        # hence, no self-loops
-        if self.load_from_files and self.sub_sequences_filename != "":
-            print("Loading sub-activities sequences from file...", end='')
-            with open(self.sub_sequences_filename, "rb") as f:
-                self.sub_sequences = pickle.load(f)
-            print_success()
-        else:
-            print("Making sub-activities sequences from raw...", end='')
-            self.sub_sequences = []
-            self.__read_sub_seqs_csv()
-            print_success()
-
         # get ground truth time segmentations of sub activities
         if self.load_from_files and self.sub_sequences_filename != "":
             print("Loading sub-activities time segmentations from file...", end='')
@@ -95,6 +82,23 @@ class CAD120_Data_Reader(object):
             print("Making sub-activities time segmentations from raw...", end='')
             self.sub_time_segmentation = []
             self.__read_sub_times()
+            print_success()
+
+        # get the sequences of subactivities in a superactivity video; these are condensed (i.e. no repetitions,
+        # hence, no self-loops
+        if self.load_from_files and self.sub_sequences_filename != "":
+        # if False:
+            print("Loading sub-activities sequences from file...", end='')
+            with open(self.sub_sequences_filename, "rb") as f:
+                self.sub_sequences = pickle.load(f)
+            print_success()
+        else:
+            self.sub_sequences = []
+            if sub_sequences_collapsed:
+                print("Making sub-activities collapsed sequences from raw...", end='')
+                self.__read_sub_seqs_csv_collapsed()
+            else:
+                self.__make_sub_sequences()
             print_success()
 
         # TODO should provide functions that search-return from self.sub_sequences, self.sub_time_segmentation, etc.
@@ -163,8 +167,22 @@ class CAD120_Data_Reader(object):
     #             self.subject_super_vid_qsrs_seqs[subject_name][super_activity_name][video_id] = {}
     #             self.subject_super_vid_qsrs_seqs[subject_name][super_activity_name][video_id][data_type] = data_file
 
-    def __read_sub_seqs_csv(self, filename="temp_superactivities_subactivities_data.csv"):
-        self.__rewrite_sub_seqs_csv(filename)
+    def __make_sub_sequences(self):
+        for i in self.sub_time_segmentation:
+            durations = i["durations"]
+            sub_seq = []
+            e_frame = 0
+            for d in durations:
+                if d["start_frame"] == e_frame:
+                    raise ValueError
+                e_frame = d["end_frame"]
+                sub_seq += [d["sub_activity"]] * d["duration_frames"]
+            v = {"subject_name": i["subject_name"], "super_name": i["super_name"],
+                 "video_name": i["video_name"], "sub_seq": sub_seq}
+            self.sub_sequences.append(v)
+
+    def __read_sub_seqs_csv_collapsed(self, filename="temp_superactivities_subactivities_data.csv"):
+        self.__rewrite_sub_seqs_csv_collapsed(filename)
         with open(filename, "r") as f:
             csv_reader = csv.reader(f)
             for row in csv_reader:
@@ -180,7 +198,7 @@ class CAD120_Data_Reader(object):
         except OSError:
             pass
 
-    def __rewrite_sub_seqs_csv(self, write_filename):
+    def __rewrite_sub_seqs_csv_collapsed(self, write_filename):
         text = ""
         for subject_name in self.subjects_names_all:
             subject_dir = subject_name + "_annotations"
