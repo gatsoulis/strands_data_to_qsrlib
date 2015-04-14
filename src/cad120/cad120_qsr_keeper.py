@@ -17,7 +17,11 @@ except ImportError:
     import pickle
 from cad120_data_reader import CAD120_Data_Reader
 from qsrlib.qsrlib import QSRlib, QSRlib_Request_Message
-from utilities import *
+try:
+    from strands_utilities.utilities import *
+except ImportError:
+    from utilities import *
+
 
 
 class CAD120_QSR_Keeper(object):

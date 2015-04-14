@@ -18,7 +18,10 @@ import argparse
 import sys
 import os
 import numpy as np
-from utilities import *
+try:
+    from strands_utilities.utilities import *
+except ImportError:
+    from utilities import *
 from qsrlib_io.world_trace import *
 
 class CAD120_Data_Reader(object):
@@ -33,6 +36,7 @@ class CAD120_Data_Reader(object):
         config_parser = ConfigParser.SafeConfigParser()
         if len(config_parser.read(config_filename)) == 0:
             raise ValueError("Config file not found, please provide a config.ini file as described in the documentation")
+        print("Reading config file <%s>" % config_filename)
         config_section = "cad120_data_reader"
         try:
             self.corrected_labeling_path = config_parser.get(config_section, "corrected_labeling_path")

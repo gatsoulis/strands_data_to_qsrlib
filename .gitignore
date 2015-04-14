@@ -1,4 +1,6 @@
 ########### CUSTOM .gitignore ##################
+ini/
+inis/
 config.ini
 local.ini
 .project
