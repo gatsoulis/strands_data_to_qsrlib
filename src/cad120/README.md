@@ -12,6 +12,10 @@ Make CAD120 data compatible with QSRlib
 * Computing qsrs `-i config.ini --qsr rcc3`
 * Loading qsrs from file: `-i config.ini -l`. The QSRs filename to load is specified in the `config.ini`
 
+### Environment variables
+* `CLOUD`: where the datafiles are, since they are usually stored in one of my cloud sharing account, hence the name
+* `INIS`: path to `strands_my_inis` folder
+
 ### Config files
 Pass it as `-i` argument when running the `cad120_data_reader.py` or `cad120_data_keeper.py`
 
