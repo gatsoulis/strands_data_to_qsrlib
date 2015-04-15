@@ -18,10 +18,6 @@ import argparse
 import sys
 import os
 import numpy as np
-try:
-    from strands_utilities.utilities import *
-except ImportError:
-    from utilities import *
 from qsrlib_io.world_trace import *
 
 class CAD120_Data_Reader(object):
@@ -79,22 +75,22 @@ class CAD120_Data_Reader(object):
         self.sub_names_indexes = {}
         for i in range(len(self.sub_names)):
             self.sub_names_indexes[self.sub_names[i]] = i
-        print_success()
+        print("\t\tdone")
 
         if not self.load_from_files:
-            print(colorify(Fore.YELLOW, "Check that labeling.txt is read from the corrected version directory: '%s'" % self.corrected_labeling_path))
+            print("Check that labeling.txt is read from the corrected version directory: '%s'" % self.corrected_labeling_path)
 
         # get ground truth time segmentations of sub activities
         if self.load_from_files and self.sub_sequences_filename != "":
             print("Loading sub-activities time segmentations from file...", end='')
             with open(self.sub_time_segmentation_filename, "rb") as f:
                 self.sub_time_segmentation = pickle.load(f)
-            print_success()
+            print("\t\tdone")
         else:
             print("Making sub-activities time segmentations from raw...", end='')
             self.sub_time_segmentation = []
             self.__read_sub_times()
-            print_success()
+            print("\t\tdone")
 
         # get the sequences of subactivities in a superactivity video; these are condensed (i.e. no repetitions,
         # hence, no self-loops
@@ -103,7 +99,7 @@ class CAD120_Data_Reader(object):
             print("Loading sub-activities sequences from file...", end='')
             with open(self.sub_sequences_filename, "rb") as f:
                 self.sub_sequences = pickle.load(f)
-            print_success()
+            print("\t\tdone")
         else:
             self.sub_sequences = []
             if sub_sequences_collapsed:
@@ -111,7 +107,7 @@ class CAD120_Data_Reader(object):
                 self.__read_sub_seqs_csv_collapsed()
             else:
                 self.__make_sub_sequences()
-            print_success()
+            print("\t\tdone")
 
         # TODO should provide functions that search-return from self.sub_sequences, self.sub_time_segmentation, etc.
 
@@ -131,14 +127,14 @@ class CAD120_Data_Reader(object):
                 print("Loading tracks from file...", end='')
                 with open(self.ground_truth_tracks_filename, "rb") as f:
                     self.world_traces = pickle.load(f)
-                print_success()
+                print("\t\tdone")
             else:
                 print("Making tracks from raw...", end='')
                 self.world_traces = {}
                 self.read_ground_truth_trajectories()
-                print_success()
+                print("\t\tdone")
         else:
-            print(colorify(Fore.YELLOW, "Warning:"), "Was requested to skip tracks reading")
+            print("Warning: was requested to skip tracks reading")
 
         stop = timeit.default_timer()
         print("Data loaded in: %.2f secs" % (stop - start))
@@ -528,22 +524,22 @@ class CAD120_Data_Reader(object):
         print("sub-activities sequences to " + filename, end="")
         with open(filename, "wb") as f:
             pickle.dump(self.sub_sequences, f)
-        print_success()
+        print("\t\tdone")
 
         filename = filenames["sub_time_segmentation_filename"]
         print("sub-activities time segmentation to " + filename, end="")
         with open(filename, "wb") as f:
             pickle.dump(self.sub_time_segmentation, f)
-        print_success()
+        print("\t\tdone")
 
         if self.read_tracks:
             filename = filenames["ground_truth_tracks_filename"]
             print("tracks to " + filename, end="")
             with open(filename, "wb") as f:
                 pickle.dump(self.world_traces, f)
-            print_success()
+            print("\t\tdone")
         else:
-            print(colorify(Fore.YELLOW, "Warning:", "Not saving tracks as it was requested before not to be read"))
+            print("Warning: not saving tracks as it was requested before not to be read")
 
 
 class attrdict(dict):

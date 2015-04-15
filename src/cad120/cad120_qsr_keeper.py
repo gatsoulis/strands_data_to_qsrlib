@@ -18,11 +18,6 @@ except ImportError:
     import pickle
 from cad120_data_reader import CAD120_Data_Reader
 from qsrlib.qsrlib import QSRlib, QSRlib_Request_Message
-try:
-    from strands_utilities.utilities import *
-except ImportError:
-    from utilities import *
-
 
 
 class CAD120_QSR_Keeper(object):
@@ -70,7 +65,7 @@ class CAD120_QSR_Keeper(object):
         foo = {"description": self.description, "which_qsr": self.which_qsr, "world_qsr_traces": self.world_qsr_traces}
         with open(filename, "wb") as f:
             pickle.dump(foo, f)
-        print_success()
+        print("\t\tdone")
 
     def load(self, filename):
         print("Loading QSRs from", filename, end="")
@@ -79,7 +74,7 @@ class CAD120_QSR_Keeper(object):
         self.description = foo["description"]
         self.which_qsr = foo["which_qsr"]
         self.world_qsr_traces = foo["world_qsr_traces"]
-        print_success()
+        print("\t\tdone")
 
 
 if __name__ == '__main__':
