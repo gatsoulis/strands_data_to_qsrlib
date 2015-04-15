@@ -30,6 +30,9 @@ class CAD120_Data_Reader(object):
         start = timeit.default_timer()
         print("\n--", self.__class__.__name__)
         print("Initializing...", end="")
+
+        cloud_path = os.environ.get("CLOUD")
+
         self.load_from_files = load_from_files
         self.read_tracks = read_tracks
 
@@ -40,12 +43,17 @@ class CAD120_Data_Reader(object):
         config_section = "cad120_data_reader"
         try:
             self.corrected_labeling_path = config_parser.get(config_section, "corrected_labeling_path")
-            self.tracks_path = config_parser.get(config_section, "path")
+            self.tracks_path = config_parser.get(config_section, "raw_tracks_path")
             self.sub_sequences_filename = config_parser.get(config_section, "sub_sequences_filename")
             self.sub_time_segmentation_filename = config_parser.get(config_section, "sub_time_segmentation_filename")
             self.ground_truth_tracks_filename = config_parser.get(config_section, "ground_truth_tracks_filename")
         except ConfigParser.NoOptionError:
             raise
+        if cloud_path is not None:
+            self.corrected_labeling_path = os.path.join(cloud_path, self.corrected_labeling_path)
+            self.sub_sequences_filename = os.path.join(cloud_path, self.sub_sequences_filename)
+            self.sub_time_segmentation_filename = os.path.join(cloud_path, self.sub_time_segmentation_filename)
+            self.ground_truth_tracks_filename = os.path.join(cloud_path, self.ground_truth_tracks_filename)
 
         if skeleton_pass_filter == "all":
             self.skeleton_pass_filter = ['H', 'N', 'T', 'LS', 'LE', 'RS', 'RE', 'LHIP', 'LK', 'RHIP', 'RK', 'LH', 'RH',
@@ -547,9 +555,11 @@ class attrdict(dict):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="CAD120 data reader in QSRlib format")
+    parser.add_argument("-i", "--ini", help="ini file", required=True)
     parser.add_argument("-l", "--load", dest="load", action="store_true", help="load the data from the files in 'config.ini'")
     args = parser.parse_args()
-    reader = CAD120_Data_Reader(load_from_files=args.load)
+
+    reader = CAD120_Data_Reader(config_filename=args.ini, load_from_files=args.load)
     # reader.save()
 
     ## DEBUGGING
