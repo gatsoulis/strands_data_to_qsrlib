@@ -555,7 +555,10 @@ if __name__ == '__main__':
     parser.add_argument("-l", "--load", dest="load", action="store_true", help="load the data from the files in 'config.ini'")
     args = parser.parse_args()
 
-    reader = CAD120_Data_Reader(config_filename=args.ini, load_from_files=args.load)
+    inis_path = os.environ.get("INIS")
+    ini = os.path.join(inis_path, "strands_data_to_qsrlib", str(args.ini)) if inis_path else args.ini
+
+    reader = CAD120_Data_Reader(config_filename=ini, load_from_files=args.load)
     # reader.save()
 
     ## DEBUGGING

@@ -91,9 +91,12 @@ if __name__ == '__main__':
     parser_group.add_argument("--qsr", help="choose qsr: %s" % options.keys(), type=str)
     args = parser.parse_args()
 
+    inis_path = os.environ.get("INIS")
+    ini = os.path.join(inis_path, "strands_data_to_qsrlib", str(args.ini)) if inis_path else args.ini
+
     cfg = ConfigParser.SafeConfigParser()
-    if len(cfg.read(args.ini)) == 0:
-        raise ValueError("config file not found")
+    if len(cfg.read(ini)) == 0:
+        raise IOError(str(ini) + " not found")
 
     if not args.load:
         try:
@@ -108,7 +111,7 @@ if __name__ == '__main__':
             sys.exit(1)
 
         qsrlib = QSRlib()
-        reader = CAD120_Data_Reader(config_filename=args.ini, load_from_files=reader_load)
+        reader = CAD120_Data_Reader(config_filename=ini, load_from_files=reader_load)
         print()
         keeper = CAD120_QSR_Keeper(description="description", reader=reader, qsrlib=qsrlib, which_qsr=which_qsr)
         # optional saving
