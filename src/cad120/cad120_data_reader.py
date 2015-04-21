@@ -22,7 +22,7 @@ from qsrlib_io.world_trace import *
 
 class CAD120_Data_Reader(object):
     def __init__(self, config_filename="config.ini", skeleton_pass_filter=("H", "LH", "RH"),
-                 load_from_files=False, sub_sequences_collapsed=False, read_tracks=True):
+                 load_from_files=False, sub_sequences_collapsed=False, read_tracks=True, id=None):
         start = timeit.default_timer()
         print("\n--", self.__class__.__name__)
         print("Initializing...", end="")
@@ -106,6 +106,7 @@ class CAD120_Data_Reader(object):
                 print("Making sub-activities collapsed sequences from raw...", end='')
                 self.__read_sub_seqs_csv_collapsed()
             else:
+                print("Making sub-activities sequences from raw...", end='')
                 self.__make_sub_sequences()
             print("\t\tdone")
 
@@ -129,9 +130,9 @@ class CAD120_Data_Reader(object):
                     self.world_traces = pickle.load(f)
                 print("\t\tdone")
             else:
-                print("Making tracks from raw...", end='')
+                print("Making tracks from raw... (" + self.tracks_path + ")", end='')
                 self.world_traces = {}
-                self.read_ground_truth_trajectories()
+                self.read_ground_truth_trajectories(id=id)
                 print("\t\tdone")
         else:
             print("Warning: was requested to skip tracks reading")
@@ -295,12 +296,21 @@ class CAD120_Data_Reader(object):
         fname += ext
         return fname
 
-    def read_ground_truth_trajectories(self):
+    def read_ground_truth_trajectories(self, id=None):
         world_traces = {}
         labels_file = "activityLabel.txt"
+        if id:
+            s = id.split("_")
+            subject_name_c = s[0]
+            super_name_c = "_".join(s[1:-1])
+            video_id_c = s[-1]
         for subject_name in self.subjects_names_all:
+            if id:
+                subject_name = subject_name_c
             subject_dir = os.path.join(self.tracks_path, "annotations", str(subject_name + "_annotations"))
             for super_name in self.super_names:
+                if id:
+                    super_name = super_name_c
                 act_dir = os.path.join(subject_dir, super_name)
                 video_ids = []
                 with open(os.path.join(act_dir, labels_file)) as f:
@@ -312,6 +322,8 @@ class CAD120_Data_Reader(object):
 
                 # Get object data
                 for video_id in video_ids:
+                    if id:
+                        video_id = video_id_c
                     world_trace_description = subject_name + "_" + super_name + "_" + str(video_id)
                     world_trace = World_Trace(description=world_trace_description)
 
@@ -324,6 +336,13 @@ class CAD120_Data_Reader(object):
                     world_trace = self.skeleton_frame_data_to_qsrlib_world_trace(world_trace, joints2D)
 
                     world_traces[world_trace_description] = world_trace
+                    if id:
+                        break
+                if id:
+                    break
+            if id:
+                break
+
         # print(joints2D[1])
         # print(type(joints2D))
         self.world_traces = world_traces
@@ -352,7 +371,7 @@ class CAD120_Data_Reader(object):
         w = float(bbox[2] - bbox[0])
         l = float(bbox[3] - bbox[1])
         xc = float(bbox[0] + w/2.0)
-        yc = float(bbox[3] + l/2.0)
+        yc = float(bbox[1] + l/2.0)
         return xc, yc, w, l
 
     def get_objects_annotation_data(self, obj_annotation_dir, activity_id, start_frame=None, end_frame=None):
@@ -505,8 +524,14 @@ class CAD120_Data_Reader(object):
                 joints3D[frame][joints_enum[i]] = np.array(fields[position:position+3])
                 (x,y,z) = joints3D[frame][joints_enum[i]]
                 # Got these
-                x_2D = 156.8584456124928 + 0.0976862095248 * x * 2 - 0.0006444357104 * y * 3 + 0.0015715946682 * z
-                y_2D = 125.5357201011431 + 0.0002153447766 * x - 0.1184874093530 * y - 0.0022134485957 * z
+                # from jawad
+                # x2D = (156.8584456124928*2) + (0.0976862095248*3) * x3D - (0.0006444357104*3) * y3D + (0.0015715946682*3) * z3D;
+                # y2D = (125.5357201011431*2) + (0.0002153447766*3) * x3D - (0.1184874093530*3) * y3D - (0.0022134485957*3) * z3D;
+                x_2D = (156.8584456124928*2) + (0.0976862095248*3) * x - (0.0006444357104*3) * y + (0.0015715946682*3) * z;
+                y_2D = (125.5357201011431*2) + (0.0002153447766*3) * x - (0.1184874093530*3) * y - (0.0022134485957*3) * z;
+                # from sandeep, these do not work
+                # x_2D = 156.8584456124928 + 0.0976862095248 * x * 2 - 0.0006444357104 * y * 3 + 0.0015715946682 * z
+                # y_2D = 125.5357201011431 + 0.0002153447766 * x - 0.1184874093530 * y - 0.0022134485957 * z
                 joints2D[frame][joints_enum[i]] = np.array((x_2D, y_2D))
                 # Ignore the confidence
                 position += 4
