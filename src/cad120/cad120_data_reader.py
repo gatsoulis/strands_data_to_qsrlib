@@ -567,6 +567,15 @@ class CAD120_Data_Reader(object):
             print("Warning: not saving tracks as it was requested before not to be read")
 
 
+    def ret_sub_sequences_list2dict(self):
+        d = {}
+        for i in self.sub_sequences:
+            d[self.make_key(i["subject_name"], i["super_name"], i["video_name"])] = i["sub_seq"]
+        return d
+
+    def make_key(self, subject_name, super_name, video_name):
+        return "_".join([subject_name, super_name, video_name])
+
 class attrdict(dict):
     """ Dictionary with attribute like access """
     def __init__(self, *args, **kwargs):
@@ -577,14 +586,16 @@ class attrdict(dict):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="CAD120 data reader in QSRlib format")
     parser.add_argument("-i", "--ini", help="ini file", required=True)
-    parser.add_argument("-l", "--load", dest="load", action="store_true", help="load the data from the files in 'config.ini'")
+    parser.add_argument("-l", "--load", action="store_true", help="load the data from the files in 'config.ini'")
+    parser.add_argument("-s", "--save", action="store_true", help="save the data to the files in 'config.ini'")
     args = parser.parse_args()
 
     inis_path = os.environ.get("INIS")
     ini = os.path.join(inis_path, "strands_data_to_qsrlib", str(args.ini)) if inis_path else args.ini
 
     reader = CAD120_Data_Reader(config_filename=ini, load_from_files=args.load)
-    # reader.save()
+    if args.save:
+        reader.save()
 
     ## DEBUGGING
     # print("sub_seqs:", reader.sub_sequences)
