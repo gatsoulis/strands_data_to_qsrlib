@@ -11,6 +11,7 @@ Make CAD120 data compatible with QSRlib
 #### `cad120_data_keeper.py` examples
 * Computing qsrs `-i config.ini --qsr rcc3`
 * Loading qsrs from file: `-i config.ini -l`. The QSRs filename to load is specified in the `config.ini`
+* Making from raw and saving to a file: `-i cad120.ini --qsr <qsr> -s <path>/qsrs.p`
 
 ### Environment variables
 * `CLOUD`: where the datafiles are, since they are usually stored in one of my cloud sharing account, hence the name
