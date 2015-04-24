@@ -5,8 +5,8 @@ Make CAD120 data compatible with QSRlib
 
 ### Run
 #### `cad120_data_reader.py` examples
-* Loading from raw `-i config.ini`. The path to raw is specified in `config.ini`
-* Loading from pickles `-i config.ini -l`. The pickles filenames are specified in `config.ini`
+* Loading from raw `-i cad120.ini`. The path to raw is specified in `cad120.ini`
+* Loading from pickles `-i cad120.ini -l`. The pickles filenames are specified in `cad120.ini`
 
 #### `cad120_data_keeper.py` examples
 * Computing qsrs `-i config.ini --qsr rcc3`
