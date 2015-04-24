@@ -22,12 +22,14 @@ from qsrlib_io.world_trace import *
 
 class CAD120_Data_Reader(object):
     def __init__(self, config_filename="config.ini", skeleton_pass_filter=("H", "LH", "RH"),
-                 load_from_files=False, sub_sequences_collapsed=False, read_tracks=True, id=None):
+                 load_from_files=False, sub_sequences_collapsed=False, read_tracks=True, episode=None):
         start = timeit.default_timer()
         print("\n--", self.__class__.__name__)
-        print("Initializing...", end="")
+        print("Initializing...")
 
-        cloud_path = os.environ.get("CLOUD")
+        self.cloud_path = os.environ.get("CLOUD")
+
+        self.episode = episode
 
         self.load_from_files = load_from_files
         self.read_tracks = read_tracks
@@ -40,16 +42,17 @@ class CAD120_Data_Reader(object):
         try:
             self.corrected_labeling_path = config_parser.get(config_section, "corrected_labeling_path")
             self.tracks_path = config_parser.get(config_section, "raw_tracks_path")
-            self.sub_sequences_filename = config_parser.get(config_section, "sub_sequences_filename")
-            self.sub_time_segmentation_filename = config_parser.get(config_section, "sub_time_segmentation_filename")
-            self.ground_truth_tracks_filename = config_parser.get(config_section, "ground_truth_tracks_filename")
+            self.save_load_path = config_parser.get(config_section, "save_load_path")
+            self.sub_sequences_filename = os.path.join(self.save_load_path, config_parser.get(config_section, "sub_sequences_filename"))
+            self.sub_time_segmentation_filename = os.path.join(self.save_load_path, config_parser.get(config_section, "sub_time_segmentation_filename"))
+            self.ground_truth_tracks_filename = os.path.join(self.save_load_path, config_parser.get(config_section, "ground_truth_tracks_filename"))
         except ConfigParser.NoOptionError:
             raise
-        if cloud_path is not None:
-            self.corrected_labeling_path = os.path.join(cloud_path, self.corrected_labeling_path)
-            self.sub_sequences_filename = os.path.join(cloud_path, self.sub_sequences_filename)
-            self.sub_time_segmentation_filename = os.path.join(cloud_path, self.sub_time_segmentation_filename)
-            self.ground_truth_tracks_filename = os.path.join(cloud_path, self.ground_truth_tracks_filename)
+        if self.cloud_path is not None:
+            self.corrected_labeling_path = os.path.join(self.cloud_path, self.corrected_labeling_path)
+            self.sub_sequences_filename = os.path.join(self.cloud_path, self.sub_sequences_filename)
+            self.sub_time_segmentation_filename = os.path.join(self.cloud_path, self.sub_time_segmentation_filename)
+            self.ground_truth_tracks_filename = os.path.join(self.cloud_path, self.ground_truth_tracks_filename)
 
         if skeleton_pass_filter == "all":
             self.skeleton_pass_filter = ['H', 'N', 'T', 'LS', 'LE', 'RS', 'RE', 'LHIP', 'LK', 'RHIP', 'RK', 'LH', 'RH',
@@ -75,49 +78,48 @@ class CAD120_Data_Reader(object):
         self.sub_names_indexes = {}
         for i in range(len(self.sub_names)):
             self.sub_names_indexes[self.sub_names[i]] = i
-        print("\t\tdone")
+
+        if self.episode:
+            subject_name_foo, super_name_foo, video_name_foo = self.break_key(self.episode)
+            self.subject_names_active = [subject_name_foo]
+            self.super_names_active = [super_name_foo]
+            self.video_names_active = [video_name_foo]
+        else:
+            self.subject_names_active = self.subjects_names_all
+            self.super_names_active = self.super_names
+            self.video_names_active = None
 
         if not self.load_from_files:
             print("Check that labeling.txt is read from the corrected version directory: '%s'" % self.corrected_labeling_path)
 
         # get ground truth time segmentations of sub activities
         if self.load_from_files and self.sub_sequences_filename != "":
-            print("Loading sub-activities time segmentations from file...", end='')
+            print("Loading sub-activities time segmentations from file")
             with open(self.sub_time_segmentation_filename, "rb") as f:
                 self.sub_time_segmentation = pickle.load(f)
-            print("\t\tdone")
         else:
-            print("Making sub-activities time segmentations from raw...", end='')
+            print("Making sub-activities time segmentations from raw (%s)" % self.corrected_labeling_path)
             self.sub_time_segmentation = []
             self.__read_sub_times()
-            print("\t\tdone")
 
-        # get the sequences of subactivities in a superactivity video; these are condensed (i.e. no repetitions,
-        # hence, no self-loops
+        # get the sequences of subactivities in a superactivity video
         if self.load_from_files and self.sub_sequences_filename != "":
         # if False:
-            print("Loading sub-activities sequences from file...", end='')
+            print("Loading sub-activities sequences from file (%s)" % self.sub_sequences_filename)
             with open(self.sub_sequences_filename, "rb") as f:
                 self.sub_sequences = pickle.load(f)
-            print("\t\tdone")
         else:
             self.sub_sequences = []
             if sub_sequences_collapsed:
-                print("Making sub-activities collapsed sequences from raw...", end='')
+                raise DeprecationWarning("collapsed sequences result in no self_loops in the transitions; this has really poor performance")
+                print("Making sub-activities collapsed sequences from raw")
                 self.__read_sub_seqs_csv_collapsed()
             else:
-                print("Making sub-activities sequences from raw...", end='')
+                print("Making sub-activities sequences from raw (self.sub_time_segmentation)")
+                # TODO now it is a list, should probably be better if it was dictionary? but it will break existing code
                 self.__make_sub_sequences()
-            print("\t\tdone")
 
         # TODO should provide functions that search-return from self.sub_sequences, self.sub_time_segmentation, etc.
-
-        # TODO should really be a different class
-        # read QSRs
-        # print("Reading training qsrs from files in path", root_path_qsrs, end="")
-        # self.subject_super_vid_qsrs_seqs = {}
-        # self.__read_subject_super_vid_qsrs_seqs()
-        # print("\t\t\t" + Fore.GREEN + "success" + Fore.RESET)
 
         # TODO should actually be reading the raw trajectories also (which would then be passed to QSRlib)
         # TODO once raw trajectories are read I should provide an interface to QSRlib (or keep them in QSRlib format)
@@ -125,15 +127,13 @@ class CAD120_Data_Reader(object):
         # read track traces
         if self.read_tracks:
             if self.load_from_files and self.ground_truth_tracks_filename != "":
-                print("Loading tracks from file...", end='')
+                print("Loading tracks from file (%s)" % self.ground_truth_tracks_filename)
                 with open(self.ground_truth_tracks_filename, "rb") as f:
                     self.world_traces = pickle.load(f)
-                print("\t\tdone")
             else:
-                print("Making tracks from raw... (" + self.tracks_path + ")", end='')
+                print("Making tracks from raw (%s)" % self.tracks_path)
                 self.world_traces = {}
-                self.read_ground_truth_trajectories(id=id)
-                print("\t\tdone")
+                self.read_ground_truth_trajectories()
         else:
             print("Warning: was requested to skip tracks reading")
 
@@ -183,7 +183,7 @@ class CAD120_Data_Reader(object):
             e_frame = 0
             for d in durations:
                 if d["start_frame"] == e_frame:
-                    raise ValueError
+                    raise ValueError(i["subject_name"], i["super_name"], i["video_name"])
                 e_frame = d["end_frame"]
                 sub_seq += [d["sub_activity"]] * d["duration_frames"]
             v = {"subject_name": i["subject_name"], "super_name": i["super_name"],
@@ -244,10 +244,10 @@ class CAD120_Data_Reader(object):
 
         # reconstructed from cad120 datafiles
         sub_time_segmentation = {}
-        for subject_name in self.subjects_names_all:
+        for subject_name in self.subject_names_active:
             subject_dir = subject_name + "_annotations/"
             sub_time_segmentation[subject_name] = {}
-            for super_activity_name in self.super_names:
+            for super_activity_name in self.super_names_active:
                 # filename = self.corrected_labeling_path + "annotations/" + subject_dir + super_activity_name + "/" + "labeling.txt"
                 filename = os.path.join(self.corrected_labeling_path, "annotations", subject_dir, super_activity_name, "labeling.txt")
                 sub_time_segmentation[subject_name][super_activity_name] = {}
@@ -259,6 +259,9 @@ class CAD120_Data_Reader(object):
                             line = line.split(",")
 
                             video_id = line[0]
+                            if self.episode:
+                                if video_id not in self.video_names_active:
+                                    break
                             start_frame = int(line[1])
                             end_frame = int(line[2])
                             duration_frames = end_frame - start_frame + 1
@@ -296,34 +299,26 @@ class CAD120_Data_Reader(object):
         fname += ext
         return fname
 
-    def read_ground_truth_trajectories(self, id=None):
+    def read_ground_truth_trajectories(self):
         world_traces = {}
         labels_file = "activityLabel.txt"
-        if id:
-            s = id.split("_")
-            subject_name_c = s[0]
-            super_name_c = "_".join(s[1:-1])
-            video_id_c = s[-1]
-        for subject_name in self.subjects_names_all:
-            if id:
-                subject_name = subject_name_c
+        for subject_name in self.subject_names_active:
             subject_dir = os.path.join(self.tracks_path, "annotations", str(subject_name + "_annotations"))
-            for super_name in self.super_names:
-                if id:
-                    super_name = super_name_c
+            for super_name in self.super_names_active:
                 act_dir = os.path.join(subject_dir, super_name)
-                video_ids = []
-                with open(os.path.join(act_dir, labels_file)) as f:
-                    foo = f.readlines()
-                    for line in foo:
-                        line = line.strip()
-                        fields = line.split(',')
-                        video_ids.append(fields[0])
+                if self.episode:
+                    video_ids = self.video_names_active
+                else:
+                    video_ids = []
+                    with open(os.path.join(act_dir, labels_file)) as f:
+                        foo = f.readlines()
+                        for line in foo:
+                            line = line.strip()
+                            fields = line.split(',')
+                            video_ids.append(fields[0])
 
                 # Get object data
                 for video_id in video_ids:
-                    if id:
-                        video_id = video_id_c
                     world_trace_description = subject_name + "_" + super_name + "_" + str(video_id)
                     world_trace = World_Trace(description=world_trace_description)
 
@@ -336,12 +331,12 @@ class CAD120_Data_Reader(object):
                     world_trace = self.skeleton_frame_data_to_qsrlib_world_trace(world_trace, joints2D)
 
                     world_traces[world_trace_description] = world_trace
-                    if id:
-                        break
-                if id:
-                    break
-            if id:
-                break
+            #         if self.episode:
+            #             break
+            #     if self.episode:
+            #         break
+            # if self.episode:
+            #     break
 
         # print(joints2D[1])
         # print(type(joints2D))
@@ -527,8 +522,8 @@ class CAD120_Data_Reader(object):
                 # from jawad
                 # x2D = (156.8584456124928*2) + (0.0976862095248*3) * x3D - (0.0006444357104*3) * y3D + (0.0015715946682*3) * z3D;
                 # y2D = (125.5357201011431*2) + (0.0002153447766*3) * x3D - (0.1184874093530*3) * y3D - (0.0022134485957*3) * z3D;
-                x_2D = (156.8584456124928*2) + (0.0976862095248*3) * x - (0.0006444357104*3) * y + (0.0015715946682*3) * z;
-                y_2D = (125.5357201011431*2) + (0.0002153447766*3) * x - (0.1184874093530*3) * y - (0.0022134485957*3) * z;
+                x_2D = int(round((156.8584456124928*2) + (0.0976862095248*3) * x - (0.0006444357104*3) * y + (0.0015715946682*3) * z))
+                y_2D = int(round((125.5357201011431*2) + (0.0002153447766*3) * x - (0.1184874093530*3) * y - (0.0022134485957*3) * z))
                 # from sandeep, these do not work
                 # x_2D = 156.8584456124928 + 0.0976862095248 * x * 2 - 0.0006444357104 * y * 3 + 0.0015715946682 * z
                 # y_2D = 125.5357201011431 + 0.0002153447766 * x - 0.1184874093530 * y - 0.0022134485957 * z
@@ -538,31 +533,27 @@ class CAD120_Data_Reader(object):
         skeleton_file_pointer.close()
         return (joints2D, joints3D)
 
-    def save(self, filenames=None):
-        if not filenames:
-            filenames = {"sub_sequences_filename": self.sub_sequences_filename,
-                         "sub_time_segmentation_filename": self.sub_time_segmentation_filename,
-                         "ground_truth_tracks_filename": self.ground_truth_tracks_filename}
+    def save(self):
         print("Saving...")
+        save_folder = os.path.join(self.cloud_path, self.save_load_path) if self.cloud_path else self.save_load_path
+        if not os.path.exists(save_folder):
+            os.makedirs(save_folder)
 
-        filename = filenames["sub_sequences_filename"]
-        print("sub-activities sequences to " + filename, end="")
+        filename = self.sub_sequences_filename
+        print("sub-activities sequences to " + filename)
         with open(filename, "wb") as f:
             pickle.dump(self.sub_sequences, f)
-        print("\t\tdone")
 
-        filename = filenames["sub_time_segmentation_filename"]
-        print("sub-activities time segmentation to " + filename, end="")
+        filename = self.sub_time_segmentation_filename
+        print("sub-activities time segmentation to " + filename)
         with open(filename, "wb") as f:
             pickle.dump(self.sub_time_segmentation, f)
-        print("\t\tdone")
 
         if self.read_tracks:
-            filename = filenames["ground_truth_tracks_filename"]
-            print("tracks to " + filename, end="")
+            filename = self.ground_truth_tracks_filename
+            print("tracks to " + filename)
             with open(filename, "wb") as f:
                 pickle.dump(self.world_traces, f)
-            print("\t\tdone")
         else:
             print("Warning: not saving tracks as it was requested before not to be read")
 
@@ -576,6 +567,42 @@ class CAD120_Data_Reader(object):
     def make_key(self, subject_name, super_name, video_name):
         return "_".join([subject_name, super_name, video_name])
 
+    def break_key(self, key):
+        s = key.split("_")
+        subject_name = s[0]
+        super_name = "_".join(s[1:-1])
+        video_name = s[-1]
+        return subject_name, super_name, video_name
+
+    def world_skeleton_trace_to_dict(self, id):
+        world_trace = self.world_traces[id]
+        sorted_timestamps = world_trace.get_sorted_timestamps()
+        ret = {}
+        for s in self.skeleton_pass_filter:
+            ret[s] = []
+        for i in range(len(sorted_timestamps)):
+            t = sorted_timestamps[i]
+            world_state = world_trace.trace[t]
+            for s in self.skeleton_pass_filter:
+                try:
+                    s_state = world_state.objects[s]
+                except KeyError:
+                    # print(s, "not found.", id, t, len(sorted_timestamps), world_state.objects.keys())
+                    # if i == 0:
+                    #     raise Exception("FFS!")
+                    previous_object_state = world_trace.trace[sorted_timestamps[i-1]].objects[s]
+                    world_state.objects[s] = previous_object_state
+                    s_state = world_state.objects[s]
+                ret[s].append((world_state.objects[s].x, world_state.objects[s].y))
+        return ret
+
+
+    def world_skeleton_traces_to_dict(self):
+        ret = {}
+        for id in self.world_traces.keys():
+            ret[id] = self.world_skeleton_trace_to_dict(id)
+        return ret
+
 class attrdict(dict):
     """ Dictionary with attribute like access """
     def __init__(self, *args, **kwargs):
@@ -588,16 +615,20 @@ if __name__ == '__main__':
     parser.add_argument("-i", "--ini", help="ini file", required=True)
     parser.add_argument("-l", "--load", action="store_true", help="load the data from the files in 'config.ini'")
     parser.add_argument("-s", "--save", action="store_true", help="save the data to the files in 'config.ini'")
+    parser.add_argument("-e", "--episode", help="episode")
     args = parser.parse_args()
 
     inis_path = os.environ.get("INIS")
     ini = os.path.join(inis_path, "strands_data_to_qsrlib", str(args.ini)) if inis_path else args.ini
 
-    reader = CAD120_Data_Reader(config_filename=ini, load_from_files=args.load)
+    reader = CAD120_Data_Reader(config_filename=ini, load_from_files=args.load, episode=args.episode)
     if args.save:
         reader.save()
 
     ## DEBUGGING
+    # print(len(reader.world_traces.values()[0].trace))
+    # foo = reader.ret_sub_sequences_list2dict()
+    # print(len(foo.values()[0]))
     # print("sub_seqs:", reader.sub_sequences)
     # print("sub_tsegs:", reader.sub_time_segmentation)
     # print("gt_tracks:", reader.world_traces.keys())
