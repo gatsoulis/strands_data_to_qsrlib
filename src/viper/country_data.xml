@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<viper xmlns="http://lamp.cfar.umd.edu/viper#" xmlns:data="http://lamp.cfar.umd.edu/viperdata#">
+    <country name="Liechtenstein">
+        <rank>1</rank>
+        <year>2008</year>
+        <gdppc>141100</gdppc>
+        <neighbor name="Austria" direction="E"/>
+        <neighbor name="Switzerland" direction="W"/>
+    </country>
+    <country name="Singapore">
+        <rank>4</rank>
+        <year>2011</year>
+        <gdppc>59900</gdppc>
+        <neighbor name="Malaysia" direction="N"/>
+    </country>
+    <country name="Panama">
+        <rank>68</rank>
+        <year>2011</year>
+        <gdppc>13600</gdppc>
+        <neighbor name="Costa Rica" direction="W"/>
+        <neighbor name="Colombia" direction="E"/>
+    </country>
+
+    <data>
+            <object framespan="1:480" id="0" name="obj">
+                <attribute name="name">
+                    <data:svalue value="green_mug"/>
+                </attribute>
+                <attribute name="bbox">
+                    <data:bbox framespan="1:55" height="44" width="35"
+                        x="143" y="375"/>
+                    <data:bbox framespan="56:57" height="44" width="35"
+                        x="143" y="376"/>
+                </attribute>
+            </object>
+    </data>
+
+</viper>
