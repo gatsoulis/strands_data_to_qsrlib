@@ -11,18 +11,36 @@ from __future__ import print_function
 import argparse
 import os
 import csv
-import timeit
 
 import qsrlib_io.world_trace
+
+
 
 class CSV_to_QSRlib_Data_Reader(object):
     def __init__(self, read_from_files=True,
                  mypath=None, skeleton_filename=None, objects_csv_format="wl",
                  joints_in_file=None, joints=None, skeleton_csv_format="default",
                  data_dict=None):
-        """
+        """Class to read objects tracks and optionally skeleton tracks and convert them in QSRlib `World_Trace` format.
+        The tracks can be read from csv files when `read_from_files=True`, in which case `mypath` is required,
+        or by passing a dictionary of {object_name: [positions]} when `read_from_files=False`, in which case `mypath`
+        is required.
 
-        :param mypath: directory path where the files are
+        The positions can be points as (x, y) or bounding boxes (x, y, width, length), where x, y are the coordinates of
+        the center of the bounding box, width is the total x size and length the total y size.
+
+
+        :param read_from_files: boolean specifying whether to read from files or load from data_dict
+        :param joints_in_file: which joints are in the file
+        :param joints: which joints are requested
+        :param skeleton_csv_format: deal with cases there are other prefix data in the skeleton file and sets offset
+                                    default: 0, no prefix data
+                                    skeleton_id: 1, first value is the skeleton id
+                                    frame: 1, first value is the frame number
+                                    frame_skeleton_id: 2, first two values are the frame and the skeleton id
+        :param data_dict: the data as a dictionary of {object_name: [(x, y, width, length), ...]}, width and length are optional
+                            required when read_from_files=False
+        :param mypath: directory path where the files are, required when read_from_files=True
         :param skeleton_filename: the filename of the skeleton, without the path
         :param objects_csv_format: "corners" | "wl" | "point"
         :return:
@@ -66,6 +84,12 @@ class CSV_to_QSRlib_Data_Reader(object):
 
     @staticmethod
     def get_filenames(mypath, skeleton_filename=None):
+        """
+
+        :param mypath: the directory where the csv files are
+        :param skeleton_filename: optional skeleton filename (no path needed, but should be in `mypath`)
+        :return: the skeleton filename, a list with the objects filenames
+        """
         objects_filenames = []
         for filename in os.listdir(mypath):
             if filename.endswith(".csv"):
@@ -80,15 +104,25 @@ class CSV_to_QSRlib_Data_Reader(object):
 
 
     def read_objects_tracks(self):
+        """Reads from csv files and returns the objects' tracks as a dictionary
+
+
+        :return: a dictionary of the object name as key and the tracks as a list of tuples
+        """
         tracks = {}
         for filename in self.objects_filenames:
             o_name = os.path.splitext(filename)[0]
-            filename = os.path.join(self.path, filename)
             tracks[o_name] = self.read_object_track(filename)
         return tracks
 
 
     def read_object_track(self, filename):
+        """Reads an object's track from a csv file
+
+        :param filename: the filename of an object's track
+        :return: the requested object's track as a list of tuples with contain the position (or bounding box)
+        """
+        filename = os.path.join(self.path, filename)
         track = []
         with open(filename, "r") as f:
             csvr = csv.reader(f)
@@ -99,28 +133,34 @@ class CSV_to_QSRlib_Data_Reader(object):
 
 
     def add_objects_to_world_trace(self, tracks):
+        """Adds the object tracks to the `self.world_trace`
+
+        :param tracks: a dictionary of tracks for each object, {object_name: track, ...}
+        """
         for name, track in tracks.items():
             self.world_trace.add_object_track_from_list(name, track)
 
 
     def read_skeleton_track(self):
+        """Reads the skeleton tracks from a csv file, taking into account `self.joints`,
+        `self.skeleton_csv_format_offset`
+
+
+        :return: a dictionary of the tracks for each joint requested in `self.joints`
+        """
         offset = self.skeleton_csv_format_offset
         joints_d = {}
-        c = 0 #dbg
         for j in self.joints:
             joints_d[j] = []
         with open(os.path.join(self.path, self.skeleton_filename)) as f:
             csvr = csv.reader(f)
             for line in csvr:
-                # joints_poses = self.__process_skeleton_line(line)
-                for i, j in zip(range(len(self.joints)), self.joints):
+                # for i, j in zip(range(len(self.joints)), self.joints):
+                for j in self.joints:
+                    i = self.joints_in_file.index(j)
                     j_data = tuple(int(round(float(i))) for i in line[i*3+offset:i*3+offset+2])
                     joints_d[j].append(j_data)
-                #dbg start
-                print(joints_d)
-                c += 1
-                if c ==2: return
-                #dbg stop
+        return joints_d
 
 
 
@@ -133,11 +173,11 @@ if __name__ == '__main__':
     args = argp.parse_args()
 
     foo = CSV_to_QSRlib_Data_Reader(mypath=args.path, skeleton_filename="skeleton.csv",
-                                    skeleton_csv_format="frame_skeleton_id", joints=["head"])
+                                    skeleton_csv_format="frame_skeleton_id", joints=["head", "left_hand", "right_hand"])
 
     # print(foo.skeleton_filename, foo.objects_filenames)
     # for t in foo.world_trace.get_sorted_timestamps():
+    # for t in [foo.world_trace.get_sorted_timestamps()[0]]:
     #     print("-----\nt:", t)
     #     for o_name, o_pos in foo.world_trace.trace[t].objects.items():
     #         print(o_name, o_pos.x, o_pos.y, o_pos.width, o_pos.length)
-
