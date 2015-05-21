@@ -75,7 +75,9 @@ class CSV_to_QSRlib_Data_Reader(object):
             else:
                 self.joints = self.joints_in_file
 
+            # add the objects
             self.add_objects_to_world_trace(self.read_objects_tracks())
+            # optionally add the skeleton
             if self.skeleton_filename:
                 self.add_objects_to_world_trace(self.read_skeleton_track())
 
@@ -130,7 +132,7 @@ class CSV_to_QSRlib_Data_Reader(object):
             csvr = csv.reader(f)
             if self.objects_csv_format == "wl":
                 for line in csvr:
-                    track.append((line[0], line[1], line[2], line[3]))
+                    track.append((int(line[0]), int(line[1]), int(line[2]), int(line[3])))
         return track
 
 
@@ -143,7 +145,7 @@ class CSV_to_QSRlib_Data_Reader(object):
             self.world_trace.add_object_track_from_list(name, track)
 
 
-    def read_skeleton_track(self, world_coords=True):
+    def read_skeleton_track(self, world_coords=True, wl=(5, 5)):
         """Reads the skeleton tracks from a csv file, taking into account `self.joints`,
         `self.skeleton_csv_format_offset`
 
@@ -161,10 +163,11 @@ class CSV_to_QSRlib_Data_Reader(object):
                 for j in self.joints:
                     i = self.joints_in_file.index(j)
                     if self.skeleton_world_coords:
-                        j_data = tuple(float(i) for i in line[i*3+offset:i*3+offset+3])
+                        j_data = [float(i) for i in line[i*3+offset:i*3+offset+3]]
                         j_data = world2pixels.world2pixels(world=j_data)
                     else:
-                        j_data = tuple(int(round(float(i))) for i in line[i*2+offset:i*2+offset+2])
+                        j_data = [int(round(float(i))) for i in line[i*2+offset:i*2+offset+2]]
+                    j_data = tuple(j_data + wl)
                     joints_d[j].append(j_data)
         return joints_d
 
@@ -182,9 +185,10 @@ if __name__ == '__main__':
     foo = CSV_to_QSRlib_Data_Reader(mypath=args.path, skeleton_filename=args.skeleton, skeleton_world_coords=args.skel_world,
                                     skeleton_csv_format="frame_skeleton_id", joints=["head", "left_hand", "right_hand"])
 
-    # print(foo.skeleton_filename, foo.objects_filenames)
+    print(foo.skeleton_filename, foo.objects_filenames)
     # for t in foo.world_trace.get_sorted_timestamps():
-    # for t in [foo.world_trace.get_sorted_timestamps()[0]]:
-    #     print("-----\nt:", t)
-    #     for o_name, o_pos in foo.world_trace.trace[t].objects.items():
-    #         print(o_name, o_pos.x, o_pos.y, o_pos.width, o_pos.length)
+    for t in [foo.world_trace.get_sorted_timestamps()[0]]:
+        print("-----\nt:", t)
+        for o_name, o_pos in foo.world_trace.trace[t].objects.items():
+            print(type(o_name), type(o_pos.x), type(o_pos.y), type(o_pos.width), type(o_pos.length))
+            print(o_name, o_pos.x, o_pos.y, o_pos.width, o_pos.length)
