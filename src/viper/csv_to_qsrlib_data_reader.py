@@ -64,6 +64,7 @@ class CSV_to_QSRlib_Data_Reader(object):
             if joints_in_file:
                 self.joints_in_file = joints_in_file
             else:
+                # TODO: Following mapping is totally wrong... need to make sure that the writing of the file is in a particular order always at some point
                 self.joints_in_file = ("head", "neck", "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
                                        "left_hand", "right_hand", "torso", "left_hip", "right_hip",
                                        "left_knee", "right_knee", "left_foot", "right_foot")
@@ -132,7 +133,11 @@ class CSV_to_QSRlib_Data_Reader(object):
             csvr = csv.reader(f)
             if self.objects_csv_format == "wl":
                 for line in csvr:
-                    track.append((int(line[0]), int(line[1]), int(line[2]), int(line[3])))
+                    # TODO: Forced to do cause skeleton is flipped to the image...
+                    foo = [int(line[0]), int(line[1]), int(line[2]), int(line[3])]
+                    foo[0] = 640 - int(foo[0]+foo[2]/2.) # make center and flip
+                    foo[1] = int(foo[1]+foo[3]/2.) # make center
+                    track.append(tuple(foo))
         return track
 
 
@@ -161,7 +166,16 @@ class CSV_to_QSRlib_Data_Reader(object):
             for line in csvr:
                 # for i, j in zip(range(len(self.joints)), self.joints):
                 for j in self.joints:
-                    i = self.joints_in_file.index(j)
+                    # TODO: This is a temporary fix for one particular file... need to investigate why following line is non-sense
+                    # i = self.joints_in_file.index(j)
+                    if j == "head":
+                        i = 0
+                    elif j == "left_hand":
+                        i = 3 # non-moving hand
+                    elif j == "right_hand":
+                        i = 10 # moving hand
+                    else:
+                        raise ValueError
                     if self.skeleton_world_coords:
                         j_data = [float(i) for i in line[i*3+offset:i*3+offset+3]]
                         j_data = world2pixels.world2pixels(world=j_data)
@@ -177,7 +191,7 @@ if __name__ == '__main__':
     argp = argparse.ArgumentParser(description="csv to QSRlib world trace format")
     argp.add_argument("-p", "--path", required=True, help="directory path where the files are")
     argp.add_argument("--skeleton", help="skeleton filename")
-    argp.add_argument("-l", "--load", help="pickle filename to load")
+    # argp.add_argument("-l", "--load", help="pickle filename to load")
     argp.add_argument("-s", "--save")
     argp.add_argument("--skel_world", action="store_true", help="skeleton is in world coordinates (else assumed to be in pixels coordinates)")
     args = argp.parse_args()
@@ -187,8 +201,8 @@ if __name__ == '__main__':
 
     print(foo.skeleton_filename, foo.objects_filenames)
     # for t in foo.world_trace.get_sorted_timestamps():
-    for t in [foo.world_trace.get_sorted_timestamps()[0]]:
-        print("-----\nt:", t)
-        for o_name, o_pos in foo.world_trace.trace[t].objects.items():
-            print(type(o_name), type(o_pos.x), type(o_pos.y), type(o_pos.width), type(o_pos.length))
-            print(o_name, o_pos.x, o_pos.y, o_pos.width, o_pos.length)
+    # for t in [foo.world_trace.get_sorted_timestamps()[0]]:
+    #     print("-----\nt:", t)
+    #     for o_name, o_pos in foo.world_trace.trace[t].objects.items():
+    #         print(type(o_name), type(o_pos.x), type(o_pos.y), type(o_pos.width), type(o_pos.length))
+    #         print(o_name, o_pos.x, o_pos.y, o_pos.width, o_pos.length)
